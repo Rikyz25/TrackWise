@@ -1,28 +1,25 @@
 <?php
 
 class Database {
-    private $host = "db.efmwlwggluveqyrmidny.supabase.co";
+    private $host = "aws-1-ap-northeast-1.pooler.supabase.com";
     private $db_name = "postgres";
-    private $username = "postgres";
+    private $username = "postgres.efmwlwggluveyqrmidny";
     private $password = "IamRikyz@25";
-    public $conn;
 
     public function getConnection() {
-        $this->conn = null;
-
         try {
-            $this->conn = new PDO(
-                "pgsql:host=" . $this->host . ";port=5432;dbname=" . $this->db_name,
+            $conn = new PDO(
+                "pgsql:host={$this->host};port=6543;dbname={$this->db_name}",
                 $this->username,
                 $this->password
             );
 
-            $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            return $conn;
 
-        } catch(PDOException $exception) {
-            echo json_encode(["error" => $exception->getMessage()]);
+        } catch(PDOException $e) {
+            echo json_encode(["error" => "Connection error: " . $e->getMessage()]);
+            return null;
         }
-
-        return $this->conn;
     }
 }
