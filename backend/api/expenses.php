@@ -18,10 +18,11 @@ if ($method == "POST") {
 
     // Attempt to read parsing either from JSON or FormData native $_POST
     $data = json_decode(file_get_contents("php://input"), true);
+    if (!is_array($data)) $data = [];
 
-    $amount = $_POST['amount'] ?? ($data['amount'] ?? null);
-    $category_id = $_POST['category_id'] ?? ($data['category_id'] ?? null);
-    $description = $_POST['description'] ?? ($data['description'] ?? '');
+    $amount = $_POST['amount'] ?? $data['amount'] ?? null;
+    $category_id = $_POST['category_id'] ?? $data['category_id'] ?? null;
+    $description = $_POST['description'] ?? $data['description'] ?? '';
 
     // ✅ Proper validation (FIXED)
     if ($amount === null || $category_id === null || $description === '') {
