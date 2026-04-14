@@ -54,9 +54,7 @@ export default function EmployeeDashboard() {
         }
 
         try {
-            const res = await api.post('/expenses.php', submitData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
+            const res = await api.post('/expenses.php', submitData);
             setMessage({ type: 'success', text: `Expense submitted successfully! Status: ${res.data.status}` });
             setFormData({ amount: '', category_id: '', description: '', bill: null });
             fetchData(); // Refresh UI
