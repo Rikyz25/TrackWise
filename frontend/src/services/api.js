@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'https://trackwise.infinityfree.me/api';
+const API_URL = 'https://trackwise-5x20.onrender.com/api';
 
 const api = axios.create({
     baseURL: API_URL,
