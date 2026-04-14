@@ -1,12 +1,12 @@
 FROM php:8.2-apache
 
-# Install MySQL PDO driver
-RUN docker-php-ext-install pdo pdo_mysql
+# Install PostgreSQL driver
+RUN apt-get update && apt-get install -y \
+    libpq-dev \
+    && docker-php-ext-install pdo pdo_pgsql
 
-# Enable Apache rewrite
+# (optional) enable rewrite if needed
 RUN a2enmod rewrite
 
-# Copy project files
+# Copy your app
 COPY . /var/www/html/
-
-EXPOSE 80
