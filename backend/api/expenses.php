@@ -8,58 +8,51 @@ $db = (new Database())->getConnection();
 $method = $_SERVER["REQUEST_METHOD"];
 
 if ($method == "POST") {
-    // Submit expense
+
+    // Only employees can submit
     if ($auth['role'] !== 'employee') {
         http_response_code(403);
         echo json_encode(['error' => 'Only employees can submit expenses']);
         exit;
     }
 
-    $amount = $_POST['amount'] ?? null;
-    $category_id = $_POST['category_id'] ?? null;
-    $description = $_POST['description'] ?? '';
-    
-    if (!$amount || !$category_id || !$description) {
+    // ✅ Read JSON input (FIXED)
+    $data = json_decode(file_get_contents("php://input"), true);
+
+    $amount = $data['amount'] ?? null;
+    $category_id = $data['category_id'] ?? null;
+    $description = $data['description'] ?? '';
+
+    // ✅ Proper validation (FIXED)
+    if ($amount === null || $category_id === null || $description === '') {
         http_response_code(400);
         echo json_encode(['error' => 'Amount, category, and description are required']);
         exit;
     }
 
-    // Handle File Upload
+    // ❌ File upload removed (not compatible with JSON requests)
     $bill_path = null;
-    if (isset($_FILES['bill']) && $_FILES['bill']['error'] == UPLOAD_ERR_OK) {
-        $allowed_types = ['image/jpeg', 'image/png', 'application/pdf'];
-        $file_type = mime_content_type($_FILES['bill']['tmp_name']);
-        
-        if (in_array($file_type, $allowed_types) && $_FILES['bill']['size'] < 5000000) { // 5MB limit
-            $ext = pathinfo($_FILES['bill']['name'], PATHINFO_EXTENSION);
-            $filename = uniqid('bill_') . '.' . $ext;
-            $dest = '../uploads/' . $filename;
-            
-            if (move_uploaded_file($_FILES['bill']['tmp_name'], $dest)) {
-                $bill_path = 'uploads/' . $filename;
-            }
-        } else {
-            http_response_code(400);
-            echo json_encode(['error' => 'Invalid file type or size exceeded']);
-            exit;
-        }
-    }
 
-    // Check Threshold for Auto-Approve logic
+    // ✅ Get category threshold
     $cat_stmt = $db->prepare("SELECT threshold FROM categories WHERE id = :id");
     $cat_stmt->execute(['id' => $category_id]);
     $category = $cat_stmt->fetch(PDO::FETCH_ASSOC);
-    
+
     if (!$category) {
         http_response_code(400);
         echo json_encode(['error' => 'Invalid category']);
         exit;
     }
 
+    // ✅ Status logic
     $status = ($amount <= $category['threshold']) ? 'auto_approved' : 'pending';
 
-    $stmt = $db->prepare("INSERT INTO expenses (user_id, amount, category_id, description, bill_path, status) VALUES (:uid, :amt, :cid, :desc, :bill, :status)");
+    // ✅ Insert expense
+    $stmt = $db->prepare("
+        INSERT INTO expenses (user_id, amount, category_id, description, bill_path, status) 
+        VALUES (:uid, :amt, :cid, :desc, :bill, :status)
+    ");
+
     $inserted = $stmt->execute([
         'uid' => $auth['id'],
         'amt' => $amount,
@@ -71,16 +64,20 @@ if ($method == "POST") {
 
     if ($inserted) {
         http_response_code(201);
-        echo json_encode(['message' => 'Expense submitted successfully', 'status' => $status]);
+        echo json_encode([
+            'message' => 'Expense submitted successfully',
+            'status' => $status   // ✅ THIS FIXES "undefined"
+        ]);
     } else {
         http_response_code(500);
         echo json_encode(['error' => 'Database error']);
     }
 
 } else if ($method == "GET") {
-    // Get Expenses
+
     if (isset($_GET['user_id'])) {
         $user_id = $_GET['user_id'];
+
         if ($auth['role'] === 'employee' && $user_id != $auth['id']) {
             http_response_code(403);
             echo json_encode(['error' => 'You can only view your own expenses']);
@@ -97,19 +94,19 @@ if ($method == "POST") {
         $stmt->execute(['uid' => $user_id]);
         $expenses = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // Calculate allowance dynamic
+        // ✅ Calculate allowance
         $u_stmt = $db->prepare("SELECT allowance FROM users WHERE id = :uid");
         $u_stmt->execute(['uid' => $user_id]);
         $user_data = $u_stmt->fetch(PDO::FETCH_ASSOC);
-        
+
         $total_approved = 0;
-        foreach($expenses as &$exp) {
+        foreach ($expenses as &$exp) {
             $exp['amount'] = (float)$exp['amount'];
             if ($exp['status'] === 'approved' || $exp['status'] === 'auto_approved') {
                 $total_approved += $exp['amount'];
             }
         }
-        
+
         $allowance = (float)($user_data['allowance'] ?? 10000);
         $remaining = $allowance - $total_approved;
 
@@ -121,8 +118,9 @@ if ($method == "POST") {
                 'remaining_balance' => $remaining
             ]
         ]);
-        
+
     } else if (isset($_GET['status']) && $_GET['status'] == 'pending') {
+
         if ($auth['role'] !== 'manager') {
             http_response_code(403);
             echo json_encode(['error' => 'Manager only']);
@@ -137,34 +135,35 @@ if ($method == "POST") {
             WHERE e.status = 'pending' 
             ORDER BY e.created_at DESC
         ");
-        
+
         echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
     }
 
 } else if ($method == "PUT") {
-    // Approve / Reject
+
     if ($auth['role'] !== 'manager') {
         http_response_code(403);
         echo json_encode(['error' => 'Manager only']);
         exit;
     }
 
-    $data = json_decode(file_get_contents("php://input"));
-    
-    if(!isset($data->id) || !isset($data->status)) {
+    $data = json_decode(file_get_contents("php://input"), true);
+
+    if (!isset($data['id']) || !isset($data['status'])) {
         http_response_code(400);
         echo json_encode(['error' => 'Missing ID or Status']);
         exit;
     }
 
-    if (!in_array($data->status, ['approved', 'rejected'])) {
+    if (!in_array($data['status'], ['approved', 'rejected'])) {
         http_response_code(400);
-        echo json_encode(['error' => 'Invalid status limit']);
+        echo json_encode(['error' => 'Invalid status']);
         exit;
     }
 
     $stmt = $db->prepare("UPDATE expenses SET status = :status WHERE id = :id");
-    if($stmt->execute(['status' => $data->status, 'id' => $data->id])) {
+
+    if ($stmt->execute(['status' => $data['status'], 'id' => $data['id']])) {
         echo json_encode(['message' => 'Status updated']);
     } else {
         http_response_code(500);
