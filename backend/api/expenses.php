@@ -129,7 +129,7 @@ if ($method == "POST") {
         }
 
         $stmt = $db->query("
-            SELECT e.*, u.name as employee_name, c.name as category_name 
+            SELECT e.*, u.name as employee_name, u.email as employee_email, c.name as category_name 
             FROM expenses e 
             JOIN users u ON e.user_id = u.id 
             JOIN categories c ON e.category_id = c.id 

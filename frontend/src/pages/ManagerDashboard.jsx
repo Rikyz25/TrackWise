@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '../services/api';
-import { Settings, ListCollapse, CheckCircle, XCircle, Clock, Save, FileText, Search, LayoutList } from 'lucide-react';
+import { Settings, ListCollapse, CheckCircle, XCircle, Clock, Save, FileText, Search, LayoutList, AlertTriangle, Mail } from 'lucide-react';
 
 export default function ManagerDashboard() {
     const [activeTab, setActiveTab] = useState('pending'); // pending, ledger, categories
@@ -68,6 +68,66 @@ export default function ManagerDashboard() {
             alert('Failed to save threshold');
         }
     };
+    
+    // Countdown component for escalation logic
+    const CountdownTimer = ({ createdAt, escalated, escalationError }) => {
+        const [remaining, setRemaining] = useState(0);
+        const [isExpired, setIsExpired] = useState(false);
+
+        useEffect(() => {
+            const calculateRemaining = () => {
+                const created = new Date(createdAt).getTime();
+                const now = new Date().getTime();
+                const diff = 60 - Math.floor((now - created) / 1000);
+                
+                if (diff <= 0) {
+                    setRemaining(0);
+                    setIsExpired(true);
+                } else {
+                    setRemaining(diff);
+                    setIsExpired(false);
+                }
+            };
+
+            calculateRemaining();
+            const timer = setInterval(calculateRemaining, 1000);
+            return () => clearInterval(timer);
+        }, [createdAt]);
+
+        if (escalationError) {
+            return (
+                <div className="flex items-center gap-1.5 text-xs font-medium text-red-600 bg-red-50 px-2 py-1 rounded mt-2 border border-red-100 w-fit">
+                    <AlertTriangle className="h-3 w-3" />
+                    Delivery Failed: {escalationError}
+                </div>
+            );
+        }
+
+        if (escalated) {
+            return (
+                <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded mt-2 border border-emerald-100 w-fit animate-pulse">
+                    <Mail className="h-3 w-3" />
+                    Email Sent Successfully
+                </div>
+            );
+        }
+
+        if (isExpired) {
+            return (
+                <div className="flex items-center gap-1.5 text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded mt-2 border border-blue-100 w-fit">
+                    <Clock className="h-3 w-3 animate-spin" />
+                    Escalating...
+                </div>
+            );
+        }
+
+        return (
+            <div className="flex items-center gap-1.5 text-xs font-medium text-orange-600 bg-orange-50 px-2 py-1 rounded mt-2 border border-orange-100 w-fit font-mono">
+                <Clock className="h-3 w-3" />
+                Wait Time: {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, '0')}
+            </div>
+        );
+    };
 
     return (
         <div className="space-y-6">
@@ -116,6 +176,11 @@ export default function ManagerDashboard() {
                                             </div>
                                             <p className="text-sm text-gray-600">{exp.description}</p>
                                             <p className="text-xs text-gray-400 mt-1">Submitted: {new Date(exp.created_at).toLocaleString()}</p>
+                                            <CountdownTimer 
+                                                createdAt={exp.created_at} 
+                                                escalated={exp.escalated === "1" || exp.escalated === 1 || exp.escalated === true} 
+                                                escalationError={exp.escalation_error}
+                                            />
                                         </div>
                                         <div className="flex items-center gap-4">
                                             <span className="text-xl font-bold font-mono text-gray-900 mr-4">₹{parseFloat(exp.amount).toFixed(2)}</span>

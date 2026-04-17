@@ -43,21 +43,33 @@ if (empty($managers)) {
 echo "Found " . count($pending_expenses) . " expenses to escalate.\n";
 
 foreach ($pending_expenses as $expense) {
+    $all_sent = true;
+    $last_error = null;
+
     foreach ($managers as $manager) {
-        sendEscalationEmail($manager, $expense);
+        $sent = sendEscalationEmail($manager, $expense);
+        if (!$sent) {
+            $all_sent = false;
+            $last_error = "Failed to send to " . $manager['email'];
+        }
     }
     
-    // 3. Mark as escalated
-    $update = $db->prepare("UPDATE expenses SET escalated = TRUE WHERE id = :id");
-    $update->execute(['id' => $expense['id']]);
-    echo "Escalated expense ID: " . $expense['id'] . "\n";
+    // 3. Mark as escalated or log error
+    if ($all_sent) {
+        $update = $db->prepare("UPDATE expenses SET escalated = TRUE, escalation_error = NULL WHERE id = :id");
+        $update->execute(['id' => $expense['id']]);
+        echo "Escalated expense ID: " . $expense['id'] . "\n";
+    } else {
+        $update = $db->prepare("UPDATE expenses SET escalation_error = :err WHERE id = :id");
+        $update->execute(['err' => $last_error, 'id' => $expense['id']]);
+        echo "FAILED to escalate expense ID: " . $expense['id'] . " - $last_error\n";
+    }
 }
 
 function sendEscalationEmail($manager, $expense) {
     $expense_id = $expense['id'];
     
     // Generate secure tokens for approve/reject
-    // These include the expense ID and the intended action
     $token_approve = jwt_encode(['expense_id' => $expense_id, 'action' => 'approved', 'exp' => time() + 3600*24]);
     $token_reject = jwt_encode(['expense_id' => $expense_id, 'action' => 'rejected', 'exp' => time() + 3600*24]);
     
@@ -74,23 +86,24 @@ function sendEscalationEmail($manager, $expense) {
             <p>Hello {$manager['name']},</p>
             <p>An expense submitted by <strong>{$expense['employee_name']}</strong> has been pending for over an hour and requires your immediate attention.</p>
             
-            <div style='background: #f3f4f6; padding: 20px; border-radius: 6px; margin: 20px 0;'>
-                <table width='100%'>
+            <div style='background-color: #ffffff; padding: 24px; border-radius: 12px; margin: 24px 0; border: 1px solid #e5e7eb; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);'>
+                <h3 style='margin-top: 0; margin-bottom: 16px; color: #111827; font-size: 16px; font-weight: 600; border-bottom: 1px solid #f3f4f6; padding-bottom: 12px;'>Transaction Summary</h3>
+                <table width='100%' style='border-spacing: 0;'>
                     <tr>
-                        <td style='padding: 5px 0;'><strong>Employee:</strong></td>
-                        <td>{$expense['employee_name']} ({$expense['employee_email']})</td>
+                        <td style='padding: 8px 0; color: #6b7280; font-size: 14px; width: 30%;'>Employee</td>
+                        <td style='padding: 8px 0; color: #111827; font-size: 14px; font-weight: 500;'>{$expense['employee_name']}</td>
                     </tr>
                     <tr>
-                        <td style='padding: 5px 0;'><strong>Category:</strong></td>
-                        <td>{$expense['category_name']}</td>
+                        <td style='padding: 8px 0; color: #6b7280; font-size: 14px;'>Category</td>
+                        <td style='padding: 8px 0; color: #111827; font-size: 14px;'>{$expense['category_name']}</td>
                     </tr>
                     <tr>
-                        <td style='padding: 5px 0;'><strong>Amount:</strong></td>
-                        <td style='color: #059669; font-weight: bold;'>₹" . number_format($expense['amount'], 2) . "</td>
+                        <td style='padding: 8px 0; color: #6b7280; font-size: 14px;'>Amount</td>
+                        <td style='padding: 8px 0; color: #059669; font-size: 18px; font-weight: 700;'>₹" . number_format($expense['amount'], 2) . "</td>
                     </tr>
                     <tr>
-                        <td style='padding: 5px 0; vertical-align: top;'><strong>Description:</strong></td>
-                        <td>{$expense['description']}</td>
+                        <td style='padding: 8px 0; color: #6b7280; font-size: 14px; vertical-align: top;'>Description</td>
+                        <td style='padding: 8px 0; color: #374151; font-size: 14px; line-height: 1.5;'>{$expense['description']}</td>
                     </tr>
                 </table>
             </div>
@@ -133,5 +146,7 @@ function sendEscalationEmail($manager, $expense) {
     $log_entry .= "========================================\n\n";
     
     file_put_contents(__DIR__ . '/../mail_log.txt', $log_entry, FILE_APPEND);
+
+    return $sent;
 }
 ?>
