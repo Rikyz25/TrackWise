@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS expenses (
 -- Initial Dummy Data
 -- Default Admin Manager passwords are 'password123'
 INSERT IGNORE INTO users (id, name, email, password_hash, role) VALUES 
-(1, 'Admin Manager', 'admin@trackwise.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'manager'),
+(1, 'Admin Manager', 'adminm677@gmail.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'manager'),
 (2, 'Test Employee', 'employee@trackwise.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'employee');
 
 INSERT IGNORE INTO categories (id, name, threshold) VALUES 
