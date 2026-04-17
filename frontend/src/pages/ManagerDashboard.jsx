@@ -78,7 +78,7 @@ export default function ManagerDashboard() {
             const calculateRemaining = () => {
                 const created = new Date(createdAt).getTime();
                 const now = new Date().getTime();
-                const diff = 60 - Math.floor((now - created) / 1000);
+                const diff = 120 - Math.floor((now - created) / 1000);
                 
                 if (diff <= 0) {
                     setRemaining(0);
@@ -105,9 +105,9 @@ export default function ManagerDashboard() {
 
         if (escalated) {
             return (
-                <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded mt-2 border border-emerald-100 w-fit animate-pulse">
-                    <Mail className="h-3 w-3" />
-                    Email Sent Successfully
+                <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded mt-2 border border-emerald-100 w-fit">
+                    <CheckCircle className="h-3 w-3" />
+                    Escalation email has been sent
                 </div>
             );
         }

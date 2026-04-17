@@ -20,7 +20,7 @@ $query = "
     JOIN categories c ON e.category_id = c.id
     WHERE e.status = 'pending' 
       AND e.escalated = FALSE
-      AND e.created_at < (NOW() - INTERVAL '1 minute')
+      AND e.created_at < (NOW() - INTERVAL '2 minute')
 ";
 
 $stmt = $db->query($query);
